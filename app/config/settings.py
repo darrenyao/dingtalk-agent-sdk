@@ -21,4 +21,10 @@ class Settings:
     LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     LLM_API_MODEL = os.getenv("LLM_API_MODEL", "qwen-plus")
 
+    # MCP Server Pool configuration
+    # Use os.getenv to get the string value, then convert to int.
+    # Provide a default string value for getenv, then convert that default to int.
+    STDIO_MCP_POOL_SIZE = int(os.getenv("STDIO_MCP_POOL_SIZE", "5"))
+    CODE_ANALYSIS_MCP_POOL_SIZE = int(os.getenv("CODE_ANALYSIS_MCP_POOL_SIZE", "3"))
+
 settings = Settings()
