@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List
 from typing_extensions import NotRequired
 from loguru import logger
 from openai import AsyncOpenAI
-
+from app.agent.employee_agent import create_employee_info_agent
 from agents import (
     Runner,set_default_openai_client, set_default_openai_api, set_tracing_disabled
 )
@@ -67,7 +67,7 @@ class AgentManager:
         try:
             logger.info(f"收到消息: {context.content}")
 
-            
+            self.agent = await create_employee_info_agent()
             result = await Runner.run(self.agent, context.content, context=context)
             
             logger.info(f"\n\nFinal response:\n{result.final_output}")
