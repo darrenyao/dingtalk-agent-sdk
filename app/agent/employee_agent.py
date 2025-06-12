@@ -87,12 +87,13 @@ async def create_employee_info_mcp():
     return mcp_server
 
 # Agent工厂函数
-async def create_employee_info_agent(mcp_server: MCPServerStdio) -> Agent:
-    # mcp_server is now passed as a parameter
+async def create_employee_info_agent():
+    mcp_server = await create_employee_info_mcp()
+
     agent = Agent[MessageContext](
         name="Employee info query agent",
         instructions=dynamic_instructions,
         model=settings.LLM_API_MODEL,
-        mcp_servers=[mcp_server] # Use the passed-in mcp_server
+        mcp_servers=[mcp_server] 
     )
     return agent

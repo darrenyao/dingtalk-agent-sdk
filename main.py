@@ -7,47 +7,15 @@ import sys
 import asyncio
 import signal
 from loguru import logger
-from typing import Dict # Added
 
 # Application specific imports
-from app.config.settings import settings # Added
-from app.mcp.generic_mcp_server_pool import GenericMCPServerPool # Added
-from app.agent.employee_agent import create_employee_info_mcp # Added
-from app.agent.code_analysis_agent import create_code_analysis_mcp # Added
-from app.agent.agent_manager import AgentManager # Added
 
 from app.dingtalk.stream_client import DingTalkStreamManager
 
-# --- Global MCP Pool Instances and Map ---
-stdio_mcp_pool = GenericMCPServerPool(
-    pool_name="stdio",
-    pool_size=settings.STDIO_MCP_POOL_SIZE,
-    server_factory=create_employee_info_mcp
-)
-
-code_analysis_mcp_pool = GenericMCPServerPool(
-    pool_name="code_analysis",
-    pool_size=settings.CODE_ANALYSIS_MCP_POOL_SIZE,
-    server_factory=create_code_analysis_mcp
-)
-
-mcp_pools_map: Dict[str, GenericMCPServerPool] = {
-    "stdio": stdio_mcp_pool,
-    "code_analysis": code_analysis_mcp_pool,
-}
-# --- End Global MCP Pool Instances ---
-
-
-stream_manager = DingTalkStreamManager() # Existing
-# It's unclear if stream_manager needs agent_manager. If so, its instantiation might need to be deferred
-# or agent_manager passed to it. For now, agent_manager is created in main().
+stream_manager = DingTalkStreamManager() 
 
 shutdown_event = asyncio.Event()
 
-# AgentManager instance - will be created in main() after pools are initialized.
-# If AgentManager needs to be accessed by components initialized before main()'s try block,
-# this might need adjustment (e.g. global but None, then initialized).
-agent_manager_instance: AgentManager = None 
 
 def configure_logging():
     """Configure logging with enhanced settings"""
@@ -96,63 +64,17 @@ async def stop_stream_client():
 
 async def main():
     """Main function to run the DingTalk message processor"""
-    global agent_manager_instance # To assign the created instance
-
     # Configure logging
     configure_logging()
+    # 启动钉钉流客户端
+    start_stream_client()
 
-    try:
-        # Startup phase: Initialize MCP pools
-        logger.info("Application startup: Initializing MCP pools...")
-        await stdio_mcp_pool.initialize()
-        logger.info("Stdio MCP pool initialized.")
-        await code_analysis_mcp_pool.initialize()
-        logger.info("Code Analysis MCP pool initialized.")
-        
-        # Instantiate AgentManager with the initialized pools
-        # Note: stream_manager is instantiated globally. If it needs agent_manager,
-        # this architecture might need refinement (e.g., pass agent_manager to stream_manager.start()
-        # or lazy initialization within stream_manager).
-        agent_manager_instance = AgentManager(mcp_pools=mcp_pools_map)
-        logger.info("AgentManager initialized with MCP pools.")
-        # TODO: Pass agent_manager_instance to DingTalkStreamManager if it needs to use it.
-        # Example: stream_manager.set_agent_manager(agent_manager_instance) or pass to methods.
-
-        # 启动钉钉流客户端 (Existing)
-        start_stream_client()
-
-        # Set up signal handlers (Existing)
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, handle_signal)
-        
-        logger.info("Application started successfully. Waiting for shutdown signal...")
-        await shutdown_event.wait()
-
-    except Exception as e:
-        logger.error(f"Critical error during application startup or main loop: {e}", exc_info=True)
-        # Depending on the error, we might still want to attempt cleanup.
-    finally:
-        logger.info("Application shutdown initiated...")
-        
-        # Stop DingTalk stream client first
-        await stop_stream_client()
-        
-        # Shutdown MCP pools
-        logger.info("Shutting down MCP pools...")
-        try:
-            await stdio_mcp_pool.shutdown()
-            logger.info("Stdio MCP pool shut down.")
-        except Exception as e:
-            logger.error(f"Error during Stdio MCP pool shutdown: {e}", exc_info=True)
-        
-        try:
-            await code_analysis_mcp_pool.shutdown()
-            logger.info("Code Analysis MCP pool shut down.")
-        except Exception as e:
-            logger.error(f"Error during Code Analysis MCP pool shutdown: {e}", exc_info=True)
-        
-        logger.info("Application shutdown complete.")
+    # Set up signal handlers
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, handle_signal)
+    await shutdown_event.wait()
+    await stop_stream_client()
 
 if __name__ == "__main__":
     asyncio.run(main())
